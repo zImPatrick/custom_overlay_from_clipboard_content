@@ -1,5 +1,5 @@
-use std::{fs, sync::{atomic::{self, AtomicBool}, Arc}};
-use eframe::egui;
+use std::{fs, sync::{atomic::{self, AtomicBool}, Arc, Mutex}};
+use eframe::egui::{self, Context};
 use inputbot::KeybdKey::*;
 use str_distance::*;
 
@@ -28,6 +28,7 @@ impl eframe::App for ClipboardKeyValueDisplay {
         if !self.shown.load(atomic::Ordering::Relaxed) {
             self.value = "".to_string();
         } else {
+            // this is hella expensive and crashed twice while testing on a large file
             let mut min_levenshtein_distance = f64::MAX;
             let mut min_levenshtein_value = String::new();
             for (k, v) in &self.pairs {
@@ -93,10 +94,19 @@ fn main() {
         shown: shown.clone(),
     };
 
-    
+    // this has to be illegal in at least 32 countries
+    let ctx_mutex: Arc<Mutex<Option<Context>>> = Arc::new(Mutex::new(None));
+    let ctx_mut_clone = ctx_mutex.clone();
     FKey.bind(move || {
         let current_state = shown.load(atomic::Ordering::Relaxed);
         shown.store(!current_state, atomic::Ordering::Relaxed);
+
+        // rerender
+        let ctx_option = ctx_mutex.lock().unwrap();
+        match *ctx_option {
+            Some(ref ctx) => ctx.request_repaint(),
+            None => return
+        };
     });
 
     std::thread::spawn(inputbot::handle_input_events);
@@ -105,6 +115,10 @@ fn main() {
         "Clipboard Key-Value Display",
         options,
         Box::new(|_cc| {
+            let mut ctx = ctx_mut_clone.lock().unwrap();
+
+            // this cant be safe
+            let _ = std::mem::replace(&mut *ctx, Some(_cc.egui_ctx.clone()));
             Ok(Box::new(clipboard_object))
         }),
     );
