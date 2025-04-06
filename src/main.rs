@@ -1,4 +1,4 @@
-use std::{fs, sync::{atomic::{self, AtomicBool}, Arc}};
+use std::{fs, sync::{atomic::{self, AtomicBool}, Arc}, time::Instant};
 use eframe::egui;
 use inputbot::KeybdKey::*;
 use str_distance::*;
@@ -7,7 +7,8 @@ struct ClipboardKeyValueDisplay {
     pairs: Vec<(String, String)>,
     key: String,
     value: String,
-    shown: Arc<AtomicBool>
+    shown: Arc<AtomicBool>,
+    last_updated_key: String
 }
 
 impl Default for ClipboardKeyValueDisplay {
@@ -16,7 +17,8 @@ impl Default for ClipboardKeyValueDisplay {
             pairs: Vec::new(),
             key: String::new(),
             value: "Fortnite".to_string(),
-            shown: Arc::new(AtomicBool::new(false))
+            shown: Arc::new(AtomicBool::new(false)),
+            last_updated_key: String::new()
         }
     }
 }
@@ -26,8 +28,9 @@ impl eframe::App for ClipboardKeyValueDisplay {
         self.key = cli_clipboard::get_contents().unwrap_or(self.key.clone());
         
         if !self.shown.load(atomic::Ordering::Relaxed) {
-            self.value = "".to_string();
-        } else {
+            self.value = String::new();
+            self.last_updated_key = String::new();
+        } else if self.last_updated_key != self.key {
             let mut min_levenshtein_distance = f64::MAX;
             let mut min_levenshtein_value = String::new();
             for (k, v) in &self.pairs {
@@ -41,6 +44,7 @@ impl eframe::App for ClipboardKeyValueDisplay {
                 }
             }
             self.value = min_levenshtein_value;
+            self.last_updated_key = self.key.clone();
         }
 
 
@@ -91,6 +95,7 @@ fn main() {
         key: String::new(),
         value: String::new(),
         shown: shown.clone(),
+        last_updated_key: String::new()
     };
 
     
