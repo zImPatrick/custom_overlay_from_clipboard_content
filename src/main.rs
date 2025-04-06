@@ -38,13 +38,15 @@ impl eframe::App for ClipboardKeyValueDisplay {
         self.value = min_levenshtein_value;
 
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ctx, |ui| {
-            ui.label(self.value.clone());
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
+                ui.label(self.value.clone());
+            })
         });
     }
 
-    // fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-    //     egui::Rgba::TRANSPARENT.to_array()
-    // }
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        egui::Rgba::TRANSPARENT.to_array()
+    }
 }
 
 fn main() {
@@ -70,7 +72,8 @@ fn main() {
             .with_decorations(false)
             .with_drag_and_drop(false)
             .with_always_on_top()
-            .with_mouse_passthrough(true),
+            .with_mouse_passthrough(true)
+            .with_maximized(true),
         ..Default::default()
     };
 
