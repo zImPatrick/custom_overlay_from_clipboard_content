@@ -26,6 +26,8 @@ impl Default for ClipboardKeyValueDisplay {
 const RERENDER_DURATION: Duration = Duration::from_secs(1);
 impl eframe::App for ClipboardKeyValueDisplay {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // workaround https://github.com/emilk/egui/issues/2537
+        ctx.send_viewport_cmd(egui::ViewportCommand::MousePassthrough(true));
         if !ctx.has_requested_repaint() {
             ctx.request_repaint_after(RERENDER_DURATION);
         }
@@ -88,7 +90,6 @@ fn main() {
             .with_decorations(false)
             .with_drag_and_drop(false)
             .with_always_on_top()
-            .with_mouse_passthrough(true)
             .with_maximized(true),
         ..Default::default()
     };
@@ -124,12 +125,12 @@ fn main() {
 
     std::thread::spawn(inputbot::handle_input_events);
 
-    let _ = eframe::run_native(
+    eframe::run_native(
         "Clipboard Key-Value Display",
         options,
         Box::new(|_cc| {
             cloned_ctx_mutex.lock().unwrap().get_or_insert(_cc.egui_ctx.clone());
             Ok(Box::new(clipboard_object))
         }),
-    );
+    ).unwrap();
 }
