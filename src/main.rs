@@ -1,5 +1,5 @@
-use std::{fs, sync::{atomic::{self, AtomicBool}, Arc}, time::Instant};
-use eframe::egui;
+use std::{fs, sync::{atomic::{self, AtomicBool}, Arc, Mutex}, time::Duration};
+use eframe::egui::{self, Context};
 use inputbot::KeybdKey::*;
 use str_distance::*;
 
@@ -23,8 +23,13 @@ impl Default for ClipboardKeyValueDisplay {
     }
 }
 
+const RERENDER_DURATION: Duration = Duration::from_secs(1);
 impl eframe::App for ClipboardKeyValueDisplay {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if !ctx.has_requested_repaint() {
+            ctx.request_repaint_after(RERENDER_DURATION);
+        }
+
         self.key = cli_clipboard::get_contents().unwrap_or(self.key.clone());
         
         if !self.shown.load(atomic::Ordering::Relaxed) {
@@ -98,10 +103,23 @@ fn main() {
         last_updated_key: String::new()
     };
 
+    // I'm so sorry for this
+    let ctx_mutex = Arc::new(Mutex::new(None::<Context>));
+    let cloned_ctx_mutex = ctx_mutex.clone();
     
     FKey.bind(move || {
         let current_state = shown.load(atomic::Ordering::Relaxed);
         shown.store(!current_state, atomic::Ordering::Relaxed);
+
+        let guard = match ctx_mutex.lock() {
+            Ok(guard) => guard,
+            Err(_) => return
+        };
+
+        match *guard {
+            Some(ref ctx) => ctx.request_repaint(),
+            None => ()
+        }
     });
 
     std::thread::spawn(inputbot::handle_input_events);
@@ -110,6 +128,7 @@ fn main() {
         "Clipboard Key-Value Display",
         options,
         Box::new(|_cc| {
+            cloned_ctx_mutex.lock().unwrap().get_or_insert(_cc.egui_ctx.clone());
             Ok(Box::new(clipboard_object))
         }),
     );
