@@ -775,6 +775,7 @@ dependencies = [
  "cli-clipboard",
  "eframe",
  "inputbot",
+ "str-distance",
 ]
 
 [[package]]
@@ -2881,6 +2882,12 @@ name = "str-buf"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e08d8363704e6c71fc928674353e6b7c23dcea9d82d7012c8faf2a3a025f8d0"
+
+[[package]]
+name = "str-distance"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8416ac807fc3d3a155ac5e752e03b54c1e8cd1f1bc134959d41a3389aa01cf57"
 
 [[package]]
 name = "strict-num"
