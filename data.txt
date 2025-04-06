@@ -1,0 +1,3 @@
+Example key1;Example value1
+Example key2;Example value2;Example second value2
+Example newline key;Example\nnewline value.
