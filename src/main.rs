@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, sync::{atomic::{self, AtomicBool}, Arc}};
 use eframe::egui;
 use inputbot::KeybdKey::*;
 use str_distance::*;
@@ -7,6 +7,7 @@ struct ClipboardKeyValueDisplay {
     pairs: Vec<(String, String)>,
     key: String,
     value: String,
+    shown: Arc<AtomicBool>
 }
 
 impl Default for ClipboardKeyValueDisplay {
@@ -15,6 +16,7 @@ impl Default for ClipboardKeyValueDisplay {
             pairs: Vec::new(),
             key: String::new(),
             value: "Fortnite".to_string(),
+            shown: Arc::new(AtomicBool::new(false))
         }
     }
 }
@@ -22,20 +24,25 @@ impl Default for ClipboardKeyValueDisplay {
 impl eframe::App for ClipboardKeyValueDisplay {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.key = cli_clipboard::get_contents().unwrap_or(self.key.clone());
-
-        let mut min_levenshtein_distance = f64::MAX;
-        let mut min_levenshtein_value = String::new();
-        for (k, v) in &self.pairs {
-            let distance = str_distance_normalized(&self.key, k, Levenshtein::default());
-            if distance < min_levenshtein_distance {
-                min_levenshtein_distance = distance;
-                min_levenshtein_value = v.clone();
-                if distance == 0.0 {
-                    break;
+        
+        if !self.shown.load(atomic::Ordering::Relaxed) {
+            self.value = "".to_string();
+        } else {
+            let mut min_levenshtein_distance = f64::MAX;
+            let mut min_levenshtein_value = String::new();
+            for (k, v) in &self.pairs {
+                let distance = str_distance_normalized(&self.key, k, Levenshtein::default());
+                if distance < min_levenshtein_distance {
+                    min_levenshtein_distance = distance;
+                    min_levenshtein_value = v.clone();
+                    if distance == 0.0 {
+                        break;
+                    }
                 }
             }
+            self.value = min_levenshtein_value;
         }
-        self.value = min_levenshtein_value;
+
 
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ctx, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
@@ -77,14 +84,19 @@ fn main() {
         ..Default::default()
     };
 
+    let shown = Arc::new(AtomicBool::new(false));
+    
     let clipboard_object = ClipboardKeyValueDisplay {
         pairs,
         key: String::new(),
         value: String::new(),
+        shown: shown.clone(),
     };
+
     
     FKey.bind(move || {
-        println!("FKey pressed");
+        let current_state = shown.load(atomic::Ordering::Relaxed);
+        shown.store(!current_state, atomic::Ordering::Relaxed);
     });
 
     std::thread::spawn(inputbot::handle_input_events);
