@@ -2,7 +2,7 @@
 
 use std::{fs, sync::{atomic::{self, AtomicBool}, Arc, Mutex}, time::Duration};
 use arboard::Clipboard;
-use eframe::egui::{self, Color32, Context};
+use eframe::egui::{self, Color32, Context, Label, Widget as _};
 use inputbot::KeybdKey::*;
 use str_distance::*;
 
@@ -61,7 +61,7 @@ impl eframe::App for ClipboardKeyValueDisplay {
 
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ctx, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
-                ui.label(egui::RichText::new(self.value.clone()).heading().color(Color32::from_white_alpha(5)));
+                Label::new(egui::RichText::new(self.value.clone()).heading().color(Color32::from_white_alpha(5))).wrap().ui(ui)
             })
         });
     }
