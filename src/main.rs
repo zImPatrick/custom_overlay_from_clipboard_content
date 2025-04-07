@@ -1,6 +1,6 @@
 #![windows_subsystem = "windows"]
 
-use std::{fs, sync::{atomic::{self, AtomicBool}, Arc, Mutex}, time::Duration};
+use std::{fs, sync::{atomic::{self, AtomicBool}, mpsc, Arc, Mutex}, thread, time::Duration};
 use eframe::egui::{self, Color32, Context};
 use inputbot::KeybdKey::*;
 use str_distance::*;
@@ -34,8 +34,27 @@ impl eframe::App for ClipboardKeyValueDisplay {
             ctx.request_repaint_after(RERENDER_DURATION);
         }
 
-        self.key = cli_clipboard::get_contents().unwrap_or(self.key.clone());
-        
+        // this is an ungodly hacky fix.
+        // the fact that i have not yet experienced the gods' wrath for this should be proof enough that none exist.
+        // basically what used to happen is the program would freeze infinitely at cli_clipboard::get_contents()
+        // so now we set a 500ms limit for that function and if it exceeds that we return
+        let (sender, receiver) = mpsc::channel();
+
+        thread::spawn(move || {
+            let result = cli_clipboard::get_contents().unwrap_or(String::new());
+            let _ = sender.send(result);
+        });
+
+        match receiver.recv_timeout(Duration::from_millis(500)) {
+            Ok(value) => {
+                self.key = value;
+            }
+            Err(_) => {
+                println!("Clipboard read timed out");
+                return;
+            }
+        }
+
         if !self.shown.load(atomic::Ordering::Relaxed) {
             self.value = String::new();
             self.last_updated_key = String::new();
@@ -55,7 +74,6 @@ impl eframe::App for ClipboardKeyValueDisplay {
             self.value = min_levenshtein_value;
             self.last_updated_key = self.key.clone();
         }
-
 
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ctx, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
