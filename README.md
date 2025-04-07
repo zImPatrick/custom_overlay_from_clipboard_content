@@ -1,5 +1,5 @@
 # Custom Overlay from Clipboard Content
-To compile this on Debian install `libxtst-dev libx11-dev libxtst-dev libudev-dev`.
+To compile this on Debian install `libinput-dev libxtst-dev libx11-dev libxtst-dev libudev-dev`.
 The key to toggle the overlay by default is set to `F`.
 
 ## Linux quirks
