@@ -1,4 +1,4 @@
-use std::{fs, sync::{atomic::{self, AtomicBool}, Arc, Mutex}};
+use std::{fs, sync::{atomic::{self, AtomicBool}, Arc, Mutex}, time::Duration};
 use eframe::egui::{self, Context};
 use inputbot::KeybdKey::*;
 use str_distance::*;
@@ -7,7 +7,8 @@ struct ClipboardKeyValueDisplay {
     pairs: Vec<(String, String)>,
     key: String,
     value: String,
-    shown: Arc<AtomicBool>
+    shown: Arc<AtomicBool>,
+    last_updated_key: String
 }
 
 impl Default for ClipboardKeyValueDisplay {
@@ -16,21 +17,27 @@ impl Default for ClipboardKeyValueDisplay {
             pairs: Vec::new(),
             key: String::new(),
             value: "Fortnite".to_string(),
-            shown: Arc::new(AtomicBool::new(false))
+            shown: Arc::new(AtomicBool::new(false)),
+            last_updated_key: String::new()
         }
     }
 }
 
+const RERENDER_DURATION: Duration = Duration::from_secs(1);
 impl eframe::App for ClipboardKeyValueDisplay {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // workaround https://github.com/emilk/egui/issues/2537
         ctx.send_viewport_cmd(egui::ViewportCommand::MousePassthrough(true));
+        if !ctx.has_requested_repaint() {
+            ctx.request_repaint_after(RERENDER_DURATION);
+        }
+
         self.key = cli_clipboard::get_contents().unwrap_or(self.key.clone());
         
         if !self.shown.load(atomic::Ordering::Relaxed) {
-            self.value = "".to_string();
-        } else {
-            // this is hella expensive and crashed twice while testing on a large file
+            self.value = String::new();
+            self.last_updated_key = String::new();
+        } else if self.last_updated_key != self.key {
             let mut min_levenshtein_distance = f64::MAX;
             let mut min_levenshtein_value = String::new();
             for (k, v) in &self.pairs {
@@ -44,6 +51,7 @@ impl eframe::App for ClipboardKeyValueDisplay {
                 }
             }
             self.value = min_levenshtein_value;
+            self.last_updated_key = self.key.clone();
         }
 
 
@@ -93,21 +101,26 @@ fn main() {
         key: String::new(),
         value: String::new(),
         shown: shown.clone(),
+        last_updated_key: String::new()
     };
 
-    // this has to be illegal in at least 32 countries
-    let ctx_mutex: Arc<Mutex<Option<Context>>> = Arc::new(Mutex::new(None));
-    let ctx_mut_clone = ctx_mutex.clone();
+    // I'm so sorry for this
+    let ctx_mutex = Arc::new(Mutex::new(None::<Context>));
+    let cloned_ctx_mutex = ctx_mutex.clone();
+    
     FKey.bind(move || {
         let current_state = shown.load(atomic::Ordering::Relaxed);
         shown.store(!current_state, atomic::Ordering::Relaxed);
 
-        // rerender
-        let ctx_option = ctx_mutex.lock().unwrap();
-        match *ctx_option {
-            Some(ref ctx) => ctx.request_repaint(),
-            None => return
+        let guard = match ctx_mutex.lock() {
+            Ok(guard) => guard,
+            Err(_) => return
         };
+
+        match *guard {
+            Some(ref ctx) => ctx.request_repaint(),
+            None => ()
+        }
     });
 
     std::thread::spawn(inputbot::handle_input_events);
@@ -116,10 +129,7 @@ fn main() {
         "Clipboard Key-Value Display",
         options,
         Box::new(|_cc| {
-            let mut ctx = ctx_mut_clone.lock().unwrap();
-
-            // this cant be safe
-            let _ = std::mem::replace(&mut *ctx, Some(_cc.egui_ctx.clone()));
+            cloned_ctx_mutex.lock().unwrap().get_or_insert(_cc.egui_ctx.clone());
             Ok(Box::new(clipboard_object))
         }),
     ).unwrap();
