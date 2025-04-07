@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use std::{fs, sync::{atomic::{self, AtomicBool}, Arc, Mutex}, time::Duration};
 use eframe::egui::{self, Color32, Context};
 use inputbot::KeybdKey::*;
