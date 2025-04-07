@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
-use std::{fs, sync::{atomic::{self, AtomicBool}, mpsc, Arc, Mutex}, thread, time::Duration};
+use std::{fs, sync::{atomic::{self, AtomicBool}, Arc, Mutex}, time::Duration};
+use arboard::Clipboard;
 use eframe::egui::{self, Color32, Context};
 use inputbot::KeybdKey::*;
 use str_distance::*;
@@ -10,7 +11,8 @@ struct ClipboardKeyValueDisplay {
     key: String,
     value: String,
     shown: Arc<AtomicBool>,
-    last_updated_key: String
+    last_updated_key: String,
+    clipboard: Clipboard
 }
 
 impl Default for ClipboardKeyValueDisplay {
@@ -20,7 +22,8 @@ impl Default for ClipboardKeyValueDisplay {
             key: String::new(),
             value: "Fortnite".to_string(),
             shown: Arc::new(AtomicBool::new(false)),
-            last_updated_key: String::new()
+            last_updated_key: String::new(),
+            clipboard: Clipboard::new().unwrap()
         }
     }
 }
@@ -34,27 +37,8 @@ impl eframe::App for ClipboardKeyValueDisplay {
             ctx.request_repaint_after(RERENDER_DURATION);
         }
 
-        // this is an ungodly hacky fix.
-        // the fact that i have not yet experienced the gods' wrath for this should be proof enough that none exist.
-        // basically what used to happen is the program would freeze infinitely at cli_clipboard::get_contents()
-        // so now we set a 500ms limit for that function and if it exceeds that we return
-        let (sender, receiver) = mpsc::channel();
-
-        thread::spawn(move || {
-            let result = cli_clipboard::get_contents().unwrap_or(String::new());
-            let _ = sender.send(result);
-        });
-
-        match receiver.recv_timeout(Duration::from_millis(500)) {
-            Ok(value) => {
-                self.key = value;
-            }
-            Err(_) => {
-                println!("Clipboard read timed out");
-                return;
-            }
-        }
-
+        self.key = self.clipboard.get_text().unwrap_or_else(|_| self.key.clone());
+        
         if !self.shown.load(atomic::Ordering::Relaxed) {
             self.value = String::new();
             self.last_updated_key = String::new();
@@ -121,7 +105,8 @@ fn main() {
         key: String::new(),
         value: String::new(),
         shown: shown.clone(),
-        last_updated_key: String::new()
+        last_updated_key: String::new(),
+        clipboard: Clipboard::new().unwrap()
     };
 
     // I'm so sorry for this
