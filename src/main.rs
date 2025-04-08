@@ -28,6 +28,18 @@ impl Default for ClipboardKeyValueDisplay {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn get_selected_or_clipboard_text(clipboard: &mut Clipboard) -> Result<String, arboard::Error> {
+    use arboard::GetExtLinux;
+
+    return clipboard.get().clipboard(arboard::LinuxClipboardKind::Primary).text();
+}
+
+#[cfg(not(target_os = "linux"))]
+fn get_selected_or_clipboard_text(clipboard: &mut Clipboard) -> Result<String, arboard::Error> {
+    return clipboard.get_text()
+}
+
 const RERENDER_DURATION: Duration = Duration::from_secs(1);
 impl eframe::App for ClipboardKeyValueDisplay {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -37,7 +49,7 @@ impl eframe::App for ClipboardKeyValueDisplay {
             ctx.request_repaint_after(RERENDER_DURATION);
         }
 
-        self.key = self.clipboard.get_text().unwrap_or_else(|_| self.key.clone());
+        self.key = get_selected_or_clipboard_text(&mut self.clipboard).unwrap_or_else(|_| self.key.clone());
         
         if !self.shown.load(atomic::Ordering::Relaxed) {
             self.value = String::new();
