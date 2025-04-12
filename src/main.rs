@@ -5,6 +5,7 @@ use arboard::Clipboard;
 use eframe::egui::{self, Color32, Context, Label, Widget as _};
 use inputbot::KeybdKey::*;
 use str_distance::*;
+use tts::*;
 
 struct ClipboardKeyValueDisplay {
     pairs: Vec<(String, String)>,
@@ -12,7 +13,8 @@ struct ClipboardKeyValueDisplay {
     value: String,
     shown: Arc<AtomicBool>,
     last_updated_key: String,
-    clipboard: Clipboard
+    clipboard: Clipboard,
+    tts: Tts
 }
 
 impl Default for ClipboardKeyValueDisplay {
@@ -23,7 +25,8 @@ impl Default for ClipboardKeyValueDisplay {
             value: "Fortnite".to_string(),
             shown: Arc::new(AtomicBool::new(false)),
             last_updated_key: String::new(),
-            clipboard: Clipboard::new().unwrap()
+            clipboard: Clipboard::new().unwrap(),
+            tts: Tts::default().unwrap()
         }
     }
 }
@@ -69,6 +72,10 @@ impl eframe::App for ClipboardKeyValueDisplay {
             }
             self.value = min_levenshtein_value;
             self.last_updated_key = self.key.clone();
+            self.tts.speak(&self.value, true).unwrap_or_else(|e| {
+                println!("Failed to speak: {}\nReason: {}", self.value, e.to_string());
+                return None;
+            });
         }
 
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ctx, |ui| {
@@ -92,11 +99,11 @@ fn main() {
     let mut pairs: Vec<(String, String)> = Vec::new();
 
     for line in lines {
-        let penis = line.replace("\\n", "\n");
-        let mut parts = penis.split(';');
+        let replaced_newlines = line.replace("\\n", "\n");
+        let mut parts = replaced_newlines.split(';');
         let key = parts.next().unwrap();
         let mut value = parts.fold(String::new(), |a, b| a + b + ";");
-        value.pop();
+        value.pop();    // remove the last semicolon
         pairs.push((key.to_string(), value.to_string()));
     }
 
@@ -111,14 +118,13 @@ fn main() {
     };
 
     let shown = Arc::new(AtomicBool::new(false));
-    
+    let tts = Tts::default().unwrap();
+
     let clipboard_object = ClipboardKeyValueDisplay {
         pairs,
-        key: String::new(),
-        value: String::new(),
+        tts,
         shown: shown.clone(),
-        last_updated_key: String::new(),
-        clipboard: Clipboard::new().unwrap()
+        ..Default::default()
     };
 
     // I'm so sorry for this
