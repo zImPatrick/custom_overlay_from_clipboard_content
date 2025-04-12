@@ -14,7 +14,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install dependencies
-      run: sudo apt-get install libxtst-dev libx11-dev libxtst-dev libudev-dev
+      run: sudo apt-get install libxtst-dev libx11-dev libxtst-dev libudev-dev libinput-dev
+    - uses: Swatinem/rust-cache@v2
     - name: Build
       run: cargo build --verbose --release
     - name: Upload artifact
