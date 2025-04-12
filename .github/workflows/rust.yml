@@ -14,11 +14,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install dependencies
-      run: sudo apt-get install libxtst-dev libx11-dev libxtst-dev libudev-dev libinput-dev
+      run: sudo apt-get install libxtst-dev libx11-dev libxtst-dev libudev-dev libinput-dev gcc-mingw-w64-x86-64-win32
+    - run: rustup target add x86_64-pc-windows-gnu
     - uses: Swatinem/rust-cache@v2
     - name: Build
-      run: cargo build --verbose --release
-    - name: Upload artifact
+      run: cargo build --target x86_64-unknown-linux-gnu --target x86_64-pc-windows-gnu --verbose --release
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4.6.2
       with:
-          path: target/release/custom_overlay_from_clipboard_content
+          path: |
+            target/release/custom_overlay_from_clipboard_content
+            target/x86_64-pc-windows-gnu/release/custom_overlay_from_clipboard_content.exe
