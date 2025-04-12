@@ -1,6 +1,7 @@
 # Custom Overlay from Clipboard Content
+The key to toggle the overlay by default is set to `F`. Pressing `G` will output the value via TTS.
+
 To compile this on Debian install `libinput-dev libxtst-dev libx11-dev libxtst-dev libudev-dev`.
-The key to toggle the overlay by default is set to `F`.
 If you want to use the tts output on Linux install `libspeechd-dev`.
 
 ## Linux quirks
