@@ -1,10 +1,11 @@
 #![windows_subsystem = "windows"]
 
-use std::{fs, sync::{atomic::{self, AtomicBool}, Arc, Mutex}, time::Duration};
+use std::{fs, sync::{atomic::{self, AtomicBool}, mpsc::{Receiver, Sender}, Arc, Mutex}, thread, time::Duration};
 use arboard::Clipboard;
 use eframe::egui::{self, Color32, Context, Label, Widget as _};
 use inputbot::KeybdKey::*;
 use str_distance::*;
+use tts::*;
 
 struct ClipboardKeyValueDisplay {
     pairs: Vec<(String, String)>,
@@ -12,7 +13,8 @@ struct ClipboardKeyValueDisplay {
     value: String,
     shown: Arc<AtomicBool>,
     last_updated_key: String,
-    clipboard: Clipboard
+    clipboard: Clipboard,
+    value_sender: Option<Sender<String>>
 }
 
 impl Default for ClipboardKeyValueDisplay {
@@ -23,7 +25,8 @@ impl Default for ClipboardKeyValueDisplay {
             value: "Fortnite".to_string(),
             shown: Arc::new(AtomicBool::new(false)),
             last_updated_key: String::new(),
-            clipboard: Clipboard::new().unwrap()
+            clipboard: Clipboard::new().unwrap(),
+            value_sender: None
         }
     }
 }
@@ -50,8 +53,10 @@ impl eframe::App for ClipboardKeyValueDisplay {
         }
 
         self.key = get_selected_or_clipboard_text(&mut self.clipboard).unwrap_or_else(|_| self.key.clone());
-        
-        if !self.shown.load(atomic::Ordering::Relaxed) {
+
+        let mut rendered_text = String::new();
+        let render_text = self.shown.load(atomic::Ordering::Relaxed);
+        if !render_text && self.value_sender.is_none() {
             self.value = String::new();
             self.last_updated_key = String::new();
         } else if self.last_updated_key != self.key {
@@ -67,13 +72,21 @@ impl eframe::App for ClipboardKeyValueDisplay {
                     }
                 }
             }
+            let levenshtein_clone = min_levenshtein_value.clone();
             self.value = min_levenshtein_value;
+            let _ = match self.value_sender {
+                Some(ref sender) => sender.send(levenshtein_clone),
+                None => Ok(())
+            };
             self.last_updated_key = self.key.clone();
         }
 
+        if render_text {
+            rendered_text = self.value.clone();
+        }
         egui::CentralPanel::default().frame(egui::Frame::NONE).show(ctx, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Max), |ui| {
-                Label::new(egui::RichText::new(self.value.clone()).heading().color(Color32::from_white_alpha(5))).wrap().ui(ui)
+                Label::new(egui::RichText::new(rendered_text).heading().color(Color32::from_white_alpha(5))).wrap().ui(ui)
             })
         });
     }
@@ -92,11 +105,11 @@ fn main() {
     let mut pairs: Vec<(String, String)> = Vec::new();
 
     for line in lines {
-        let penis = line.replace("\\n", "\n");
-        let mut parts = penis.split(';');
+        let replaced_newlines = line.replace("\\n", "\n");
+        let mut parts = replaced_newlines.split(';');
         let key = parts.next().unwrap();
         let mut value = parts.fold(String::new(), |a, b| a + b + ";");
-        value.pop();
+        value.pop();    // remove the last semicolon
         pairs.push((key.to_string(), value.to_string()));
     }
 
@@ -111,14 +124,15 @@ fn main() {
     };
 
     let shown = Arc::new(AtomicBool::new(false));
-    
+    let tts = Arc::new(Mutex::new(Tts::default().unwrap()));
+    let (tts_sender, tts_receiver): (Sender<String>, Receiver<String>) = std::sync::mpsc::channel();
+    let tts_receiver = Arc::new(Mutex::new(tts_receiver));
+
     let clipboard_object = ClipboardKeyValueDisplay {
         pairs,
-        key: String::new(),
-        value: String::new(),
         shown: shown.clone(),
-        last_updated_key: String::new(),
-        clipboard: Clipboard::new().unwrap()
+        value_sender: Some(tts_sender),
+        ..Default::default()
     };
 
     // I'm so sorry for this
@@ -138,6 +152,22 @@ fn main() {
             Some(ref ctx) => ctx.request_repaint(),
             None => ()
         }
+    });
+
+    let latest_clip_content = Arc::new(Mutex::new(String::new()));
+    let latest_clip_content_clone = latest_clip_content.clone();
+    thread::spawn(move || {
+        loop {
+            let v = tts_receiver.lock().unwrap().recv().unwrap();
+            *latest_clip_content.lock().unwrap() = v.clone();
+        }
+    });
+
+    GKey.bind(move || {
+        tts.lock().unwrap().speak(latest_clip_content_clone.lock().unwrap().clone(), true).unwrap_or_else(|e| {
+            println!("Failed to speak. Reason: {}", e.to_string());
+            return None;
+        });
     });
 
     std::thread::spawn(inputbot::handle_input_events);

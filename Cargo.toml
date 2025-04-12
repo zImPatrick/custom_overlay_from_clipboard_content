@@ -8,3 +8,4 @@ arboard = { version = "3.5.0", features = ["wayland-data-control"] }
 eframe = "0.31.1"
 inputbot = "0.6.0"
 str-distance = "0.1.0"
+tts = "0.26.3"
