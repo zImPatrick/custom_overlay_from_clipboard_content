@@ -19,9 +19,13 @@ jobs:
     - uses: Swatinem/rust-cache@v2
     - name: Build
       run: cargo build --target x86_64-unknown-linux-gnu --target x86_64-pc-windows-gnu --verbose --release
-    - name: Upload artifacts
+    - name: Upload artifact for linux
       uses: actions/upload-artifact@v4.6.2
       with:
-          path: |
-            target/release/custom_overlay_from_clipboard_content
-            target/x86_64-pc-windows-gnu/release/custom_overlay_from_clipboard_content.exe
+          name: custom_overlay_from_clipboard_content-linux
+          path: target/x86_64-unknown-linux-gnu/release/custom_overlay_from_clipboard_content
+    - name: Upload artifact for windows
+      uses: actions/upload-artifact@v4.6.2
+      with:
+          name: custom_overlay_from_clipboard_content-windows.exe
+          path: target/x86_64-pc-windows-gnu/release/custom_overlay_from_clipboard_content.exe
