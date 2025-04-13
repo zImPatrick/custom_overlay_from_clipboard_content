@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install dependencies
-      run: sudo apt-get install libxtst-dev libx11-dev libxtst-dev libudev-dev libinput-dev gcc-mingw-w64-x86-64-win32
+      run: sudo apt-get install libxtst-dev libx11-dev libxtst-dev libudev-dev libinput-dev libspeechd-dev gcc-mingw-w64-x86-64-win32
     - run: rustup target add x86_64-pc-windows-gnu
     - uses: Swatinem/rust-cache@v2
     - name: Build
